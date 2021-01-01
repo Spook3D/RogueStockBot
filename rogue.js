@@ -1,8 +1,10 @@
-var http = require('http');
-var https = require('https');
-var HTMLParser = require('node-html-parser');
-
-var plates = [
+const request = require("request");
+const cheerio = require("cheerio");
+const async = require("async");
+const fs = require("fs");
+const wantedList = JSON.parse(fs.readFileSync("wanted.json"));
+const plates = 
+[
     "/rogue-hg-2-0-bumper-plates-eu",
     "/rogue-color-echo-bumper-plate-eu",
     "/rogue-black-training-kg-striped-plates-eu",
@@ -14,39 +16,54 @@ var plates = [
     "/rogue-kg-change-plates-iwf-eu"
 ];
 
-http.createServer(function (req, res) {
-    console.log("Welcome to 14 Brooke Hall Close Gym.")
-    console.log("Starting Rogue Stock Bot...")
-    plates.forEach(plate => {
-        var options = {
-            host: 'www.rogueeurope.eu',
-            path: plate,
-            port: 443,
-            method: 'GET'
-        };
+function main()
+{
+    let parsedItems = [];
+    async.eachSeries(plates, (plate, nextPlate) =>
+    {
+        console.log("Parsing item:", plate);
 
-        const roguecall = https.request(options, result => {    
-            result.on('data', d => {
-                var root = HTMLParser.parse(d);
-                var qtylist = root.querySelectorAll(".item-qty").forEach(item => {                               
-                    console.log(item.parentNode.querySelector(".item-name").innerText);
-                    console.log(item.parentNode.querySelector(".price-including-tax").querySelector(".price").innerText);
-                  });
-            })
-        })
+        request("https://www.rogueeurope.eu" + plate, (err, response, body) => 
+        {
+            if(err)
+            {
+                nextPlate();
+            }
+            else
+            {
+                let $ = cheerio.load(body);
+                let htmlItems = $(".grouped-item");
 
-        roguecall.on('error', error => {
-            console.error(error)
-        })
-    
-        roguecall.end()
-    
-        
-    }); 
+                for(let htmlItem of htmlItems)
+                {
+                    let parsedItem =
+                    { 
+                        name: $(htmlItem).find(".item-name").text(),
+                        price: $(htmlItem).find(".price-including-tax .price").text().trim(),
+                        inStock: $(htmlItem).find(".bin-out-of-stock").length === 0
+                    };
 
-    
+                    parsedItems.push(parsedItem);
+                }
 
-}).listen(8080);
+                nextPlate();
+            }
+        });
+    }, () =>
+    {
+        //Check parsed items against wanted list.
+        parsedItems.forEach(i =>
+        {
+            if(i.inStock && wantedList.includes(i.name))
+            {
+                //Wanted item found in stock. Send an SMS?
+            }
+        });
 
+        setTimeout(main, 60000);
+    });
+}
 
-
+console.log("Welcome to 14 Brooke Hall Close Gym.");
+console.log("Starting Rogue Stock Bot...");
+main();
