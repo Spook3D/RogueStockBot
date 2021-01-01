@@ -57,6 +57,7 @@ function main()
             if(i.inStock && wantedList.includes(i.name))
             {
                 //Wanted item found in stock. Send an SMS?
+                console.log("FOUND WANTED ITEM IN STOCK:", i.name);
             }
         });
 
