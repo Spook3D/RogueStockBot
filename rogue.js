@@ -3,6 +3,10 @@ const cheerio = require("cheerio");
 const async = require("async");
 const fs = require("fs");
 const wantedList = JSON.parse(fs.readFileSync("wanted.json"));
+const twilioClient = require("twilio")(YOUR_ACCOUNT_SID, YOUR_AUTH_TOKEN);
+const SMS_FROM = "+447777777777";
+const SMS_TO = "+447777777777";
+const PARSE_INTERVAL = 60000;
 const plates = 
 [
     "/rogue-hg-2-0-bumper-plates-eu",
@@ -15,6 +19,8 @@ const plates =
     "/rogue-friction-grip-kg-change-plates-iwf-eu",
     "/rogue-kg-change-plates-iwf-eu"
 ];
+
+let smsHistory = [];
 
 function main()
 {
@@ -56,12 +62,28 @@ function main()
         {
             if(i.inStock && wantedList.includes(i.name))
             {
-                //Wanted item found in stock. Send an SMS?
-                console.log("FOUND WANTED ITEM IN STOCK:", i.name);
+                //Wanted item found in stock. Send an SMS if we haven't already sent one.
+                if(!smsHistory.includes(item.name))
+                {
+                    console.log("Found wanted item '" + i.name + "' in stock. Attempting to send SMS...");
+
+                    twilioClient.messages.create({ from: SMS_FROM, to: SMS_TO, body: "Wanted item '" + i.name + "' is currently in stock." }).then(message =>
+                    {
+                        if(message.status === "sent")
+                        {
+                            console.log("The SMS was successfully sent.");
+                            smsHistory.push(item.name);
+                        }
+                        else
+                        {
+                            console.error("The SMS failed to send.");
+                        }
+                    });
+                }
             }
         });
 
-        setTimeout(main, 60000);
+        setTimeout(main, PARSE_INTERVAL);
     });
 }
 
