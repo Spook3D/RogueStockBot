@@ -2,7 +2,9 @@ const request = require("request");
 const cheerio = require("cheerio");
 const async = require("async");
 const fs = require("fs");
+const {ItemAssignmentContext} = require("twilio/lib/rest/numbers/v2/regulatoryCompliance/bundle/itemAssignment");
 const wantedList = JSON.parse(fs.readFileSync("wanted.json"));
+const twilioClient = require("twilio")(YOUR_ACCOUNT_SID, YOUR_AUTH_TOKEN);
 const plates = 
 [
     "/rogue-hg-2-0-bumper-plates-eu",
@@ -56,8 +58,15 @@ function main()
         {
             if(i.inStock && wantedList.includes(i.name))
             {
-                //Wanted item found in stock. Send an SMS?
-                console.log("FOUND WANTED ITEM IN STOCK:", i.name);
+                //Wanted item found in stock. Send an SMS.
+                console.log("Found wanted item '" + i.name + "' in stock. Attempting to send SMS...");
+                twilioClient.messages.create({ from: "+447777777777", to: "+447777777777", body: "Wanted item '" + i.name + "' is currently in stock." }).then(message =>
+                {
+                    if(message.status === "sent")
+                        console.log("The SMS was successfully sent.");
+                    else
+                        console.error("The SMS failed to send.");
+                });
             }
         });
 
